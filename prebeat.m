@@ -11,9 +11,9 @@ function prebeat(talk,samplename,auto,overtemp)
 % regions are saved for further analysis
 %
 % On the event of a crash or error the outputs of the program will be saved
-% to the working directory. Upon re-running, the function will look 
+% to the working directory. Upon re-running, the function will look
 % in the current directory and subfolders for the saved files and
-% automatically resume at the crashed point. 
+% automatically resume at the crashed point.
 %
 %           prebeat(verbose,'samplename')
 %
@@ -23,7 +23,7 @@ function prebeat(talk,samplename,auto,overtemp)
 % INPUTS
 %
 %  verbose         : Turn on prints to command line 1 = on , 0 =off
-%                 
+%
 %  samplename      : Name of Sample / Set of data - used for save files and
 %                     plots. should be entered as a string
 % OUTPUTS
@@ -33,7 +33,7 @@ function prebeat(talk,samplename,auto,overtemp)
 %
 % Processed_Mode_X.txt          :file  written to a .txt file in the
 %                                selected directory containing a breakdown
-%                                of measurements for each mechanical  mode 
+%                                of measurements for each mechanical  mode
 %                                 format = 'freq' 'offset' 'amplitude' 'fitted tau' ' Mechanical loss' 'Origin filename'
 %
 % Log_<samplenane>_.txt         :Log file containing the results of each
@@ -43,10 +43,14 @@ function prebeat(talk,samplename,auto,overtemp)
 %
 % Email   simon.tait@glasgow.gla.ac.uk
 %
-% v2.0      - Changes to Log file saving structure. Now saves in easy to read format with readtable.m  - All outputs from program will be saved on crash or error which -  can be resumed on re-running prebeat. 
+% v2.0      - Changes to Log file saving structure. Now saves in easy to read
+%             format with readtable.m
+%           - All outputs from program will be saved on crash or error which
+%             can be resumed on re-running prebeat.
 % v1.9.3    - Removal of old/new input in favour of automatic directory search
 % v1.9.2    - Improved handling of windowed data for python analysis
-% v1.9.1    - Improved robustness to code running on different operating systems
+% v1.9.1    - Improved robustness to code running on different operating
+%             systems
 % v1.9      - Added filtering to ringdown/scan data to remove large spikes
 % v1.8s     - Option to add automatic Ringdown analysis -ALPHA
 % v1.8      - Now extracts temperature information from log files
@@ -55,32 +59,52 @@ function prebeat(talk,samplename,auto,overtemp)
 % v1.5      - Auto-rejection of 'just-noise' ringdowns
 % v1.4      - Storage of variables optimised for RAM management
 % v1.3      - Functionallity on windows systems has been tested and improved.
-% v1.2      - Fixed known bug for final output summary on command line  - Tweaking of script for diffeent operating systems - ModeNumber functionallity removed
+% v1.2      - Fixed known bug for final output summary on command line
+%           - Tweaking of script for diffeent operating systems
+%           - ModeNumber functionallity removed
+%
+currentVersion = 2.0;
 
+% for a = 1:nargin-3  % only process varargin, no other parse_args() arguments
+%     thisArg = varargin{a};
+%     if ischar(thisArg) && ~isempty(thisArg)
+%         switch
+%             case '-update'
+%                 updateInstalledVersion();
+%         end
+%     end
+% end
 
-loadflag = 0; 
-% look for recovery files in current directory 
-currentdirs = dir; 
-% find all subfolders 
-subdirs = {currentdirs(find([currentdirs.isdir])).name}; 
+%% Check for new version - update if newer version exists
+if checkForNewerVersion_MATLAB(currentVersion) 
+    updateInstalledVersion()
+end
+
+%% Look for failed versions in current directory - prompt user to load if exist 
+loadflag = 0;
+% look for recovery files in current directory
+currentdirs = dir;
+% find all subfolders
+subdirs = {currentdirs(find([currentdirs.isdir])).name};
 subdirs = subdirs(~contains(subdirs,'.'));
-fileidx = isfile(fullfile(subdirs,'Recovered_outputs.mat')); 
+fileidx = isfile(fullfile(subdirs,'Recovered_outputs.mat'));
 
-if sum(isfile(fullfile(subdirs,'Recovered_outputs.mat')))  ==1 
+if sum(isfile(fullfile(subdirs,'Recovered_outputs.mat')))  ==1
     fprintf('\n Failed outputs from a previous run have been found in\n%s\n ',char(strcat('... \.',subdirs(fileidx))))
     reply = input('Do you wish to load this file? [Y\N]','s');
-        if contains(lower(reply),'y') || isempty(reply)
-            fprintf('Loading previous outputs...\n')
-            load(char(fullfile(pwd, subdirs(fileidx),'Recovered_outputs.mat')))
-            loadflag=1; 
-            
-        else 
-            clc
-        end 
-end 
+    if contains(lower(reply),'y') || isempty(reply)
+        fprintf('Loading previous outputs...\n')
+        load(char(fullfile(pwd, subdirs(fileidx),'Recovered_outputs.mat')))
+        loadflag=1;
 
-clc 
+    else
+        clc
+    end
+end
 
+clc
+
+%% Set up log file 
 if loadflag ==0
     if strcmpi(samplename,'test')
         mkdir Test
@@ -102,7 +126,7 @@ if loadflag ==0
     clear name ret
 
 
-
+%% search current directory for ringdown/scan files and match appropriately
     if numel(fnames('scan*'))>1
         prefix ={'scan_'};
         oldnew =2;
@@ -110,8 +134,7 @@ if loadflag ==0
         prefix = {'spec_'};
         oldnew =1;
     else
-        cprintf('err','\n No files of the ''spec'' or ''scan'' formats could be found')
-        cprintf('eerr','\n Please make sure this script has been run in the correct directory\n')
+        error('No files of the ''spec'' or ''scan'' formats could be found Please make sure this script has been run in the correct directory')
         return
     end
 
@@ -145,7 +168,8 @@ if loadflag ==0
     temps = [];
 
     %find size of largest file  if taking too long to load data - set max
-    %length as 100000
+    %length as 100000 - this speeds up analysis when pulling data from
+    %cloud services like Dropbox or OneDrive
     tic
     for ii = 1:length(spec_name)
 
@@ -164,33 +188,34 @@ if loadflag ==0
     histfile =  fullfile(FolderName,strcat('Log_',samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt'));
     hfid=fopen(histfile, 'a+');
 end
-
-if loadflag ==0 
+%%
+%define measurements to analyse based on if previous data has been found
+if loadflag ==0
     looprange = 1:length(spec_name);
 else
     looprange = ii:length(spec_name);
 end
-clear ii 
+clear ii
 
-for ii = looprange 
+for ii = looprange
     try
-        %   check dimensions of tau
+        %   check dimensions of tau 
         if ii>1
             if size(tau,1)>1
                 cprintf('err','\n Tau dimensions Changed:\tLoop Itt:%d\',ii)
                 break
             end
         end
-        
-        try 
-        reload = ii;
-        specdata = load(strcat(char(prefix),char(spec_name{ii})));
-        ringdata = load(strcat('ring_',char(ring_name{ii})));
-        ringdata2 = ringdata(:,2) ;
-        ringdata1  =ringdata(:,1);
-        catch 
+
+        try
+            reload = ii;
+            specdata = load(strcat(char(prefix),char(spec_name{ii})));
+            ringdata = load(strcat('ring_',char(ring_name{ii})));
+            ringdata2 = ringdata(:,2) ;
+            ringdata1  =ringdata(:,1);
+        catch
             error('Could not load in ringdown/scan_file data')
-        end 
+        end
         try
             freq(ii,:)  =  max(specdata(:,1));
         catch
@@ -206,7 +231,7 @@ for ii = looprange
             fprintf('ring file being loaded: %s \n ',char(ring_name(ii,:)));
             fprintf('Mode frequency        : %.4f Hz \n',freq(ii,:));
         end
-        %% extract mode numbers fron filenames
+%% extract mode numbers fron filenames
         test=0;
         while test==0
             if ii>1
@@ -219,7 +244,7 @@ for ii = looprange
             modes(ii) =str2num(ModeNumber{oldnew});
 
 
-            %% extract temperatures from log files
+%% extract temperatures from log files
             if ~exist('overtemp','var')
 
                 try
@@ -246,7 +271,7 @@ for ii = looprange
                 Temp(ii,:) = str2num(cell2mat(overtemp));
             end
 
-            %% perform intial fitting - prompt user
+%% perform intial fitting - prompt user
             if exist('auto','var') && ~isempty(auto)
                 suppress = 'true';
                 [tau(ii),phi(ii),gof(ii),reject(ii)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,suppress);
@@ -279,7 +304,7 @@ for ii = looprange
 
 
 
-            %% perform windowing if propmted
+%% perform windowing if propmted
             if isempty(ShouldKeep)
                 Keep(ii) = 1;
             elseif ShouldKeep=='1'
@@ -468,7 +493,6 @@ for ii = looprange
 end
 
 
-
 %pythondata
 pyname = strcat(FolderName,'/PyTotalAnalysis.mat');
 
@@ -530,7 +554,6 @@ else
         end
     end
     title(regexprep(samplename,'_',' '))
-
     set(gca,'YScale','log')
     legend('Location','BestOutside')
     xlabel('Temperature [K]')
@@ -546,24 +569,124 @@ end
 %run python analysis
 cd(FolderName);
 
-reply = input('\nPerform Python Analysis? [Y/N] \n','s');
-if contains(lower(reply),'y')
+%functionallity currently uses python and Linux base commands - this will
+%not work for other systems and needs to be fixed before rolling out to
+%everyone
+if contains(ComputerID,'ComputerID')
+    reply = input('\nPerform Python Analysis? [Y/N] \n','s');
+    if contains(lower(reply),'y')
 
-    pre_fit_py
+        pre_fit_py
 
-    pause(2)
-    system(sprintf('! open %s ',char(fnames('results*.png'))))
+        pause(2)
+        system(sprintf('! open %s ',char(fnames('results*.png'))))
 
-    reply2 = input('\n Do you want to go through this data now?  [Y/N]','s');
+        reply2 = input('\n Do you want to go through this data now?  [Y/N]','s');
 
-    if contains(lower(reply2),'y')|| isempty(reply2)
-        beat_excel
+        if contains(lower(reply2),'y')|| isempty(reply2)
+            beat_excel
+        end
     end
 end
+end 
 
+%% Checking for new versions and self-updating
+% Function used to fetch latest master-branch from github and install in
+% MATLAB path. Code taken adapted from export_fig.m https://github.com/altmany/export_fig/
 
-
-
-
-
+% Update the installed version of Prebeat from the latest version online
+function updateInstalledVersion()
+    % Download the latest version of Prebeat into the Prebeat folder
+    zipFileName = 'https://github.com/Titian2/Prebeat/archive/master.zip';
+    fprintf('Downloading latest version of %s from %s...\n', 'Prebeat', zipFileName);
+    folderName = fileparts(which(mfilename('fullpath')));
+    targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
+    try
+        folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
+    catch  % hyperlink.m is not properly installed
+        folder = folderName;
+    end
+    try
+        urlwrite(zipFileName,targetFileName); %#ok<URLWR>
+    catch err
+        error('Prebeat_update:download','Error downloading %s into %s: %s\n',zipFileName,targetFileName,err.message);
+    end
+    
+    % Unzip the downloaded zip file in the Prebeat folder
+    fprintf('Extracting %s...\n', targetFileName);
+    try
+        unzip(targetFileName,folderName);
+        % Fix issue #302 - zip file uses an internal folder Prebeat-master
+        subFolder = fullfile(folderName,'Prebeat-master');
+        try movefile(fullfile(subFolder,'*.*'),folderName, 'f'); catch, end %All OSes
+        try movefile(fullfile(subFolder,'*'),  folderName, 'f'); catch, end %MacOS/Unix
+        try movefile(fullfile(subFolder,'.*'), folderName, 'f'); catch, end %MacOS/Unix
+        try rmdir(subFolder); catch, end
+    catch err
+        error('Prebeat:update:unzip','Error unzipping %s: %s\n',targetFileName,err.message);
+    end
+    
+    % Notify the user and rehash
+    fprintf('Successfully installed the latest %s version in %s\n', mfilename, folder);
+    clear functions %#ok<CLFUNC>
+    rehash
 end
+
+
+% Check for newer version (only once a day)
+function isNewerVersionAvailable = checkForNewerVersion_MATLAB(currentVersion)
+    persistent lastCheckTime lastVersion
+    isNewerVersionAvailable = false;
+    %     if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
+    url ='https://raw.githubusercontent.com/Titian2/Prebeat/main/prebeat.m';
+    try
+        str = webread(url);
+        cll = strsplit(str, '\n')';    
+        versionHistory = regexp(str, '\%\s+v\d+[.](.*?)\n','Match')';
+        versionHistory = regexp(versionHistory,'(v\d\.\d) | (v\d\.\d\w) | (v\d\.\d\.\d)','Match');
+        versionHistory = [versionHistory{:}]';
+        versionHistory = cellfun(@(str)regexprep(str,'\s+', ''),versionHistory ,'UniformOutput',false);
+    
+        a = cellfun(@(str)regexp(str,'\d+','Match'),versionHistory,'UniformOutput',false);
+    
+        for i =1:numel(a)
+            if size(a{i},2) < 3
+                a{i} = [a{i},'0'];
+            end
+            versionNum(i) = str2num(cell2mat(a{i}(1:3)));
+        end
+    
+        latestVersion = max(versionNum)/100;
+    
+        if nargin < 1
+            currentVersion = lastVersion;
+        else
+            currentVersion = currentVersion + 1e3*eps;
+        end
+        isNewerVersionAvailable = latestVersion > currentVersion;
+        if isNewerVersionAvailable
+            try
+                versionDesc = cll(find(contains(cll,versionHistory)));
+                versionDesc = regexprep(extractAfter(versionDesc,versionHistory),'\s{2,}','');
+            catch
+                % Something bad happened - only display the latest version description
+                versionDesc = {'version description not avalible'};
+            end
+            try versionDesc = strjoin(strrep(strcat(' ***', strtrim(strsplit(versionDesc,';'))),'***','* '), char(10)); catch, end %#ok<CHARTEN>
+            msg = sprintf(['You are using version %g of Prebeat. A newer version (%g) is available, with the following improvements/fixes:\n\n %s\n\n',... ,
+                'A change-log of recent releases is available here; the complete change-log is included at the top of the Prebeat.m file.\n',...
+                'You can download the new version from GitHub'],currentVersion, latestVersion,string(versionDesc{1}));
+            msg = hyperlink('https://github.com/Titian2/Prebeat/', 'GitHub', msg);
+            msg = hyperlink('matlab:Prebeat(''-update'')', msg);
+            warning('Prebeat:version',msg);
+        end
+    catch
+        % ignore
+    end
+    lastCheckTime = now;
+    lastVersion = currentVersion;
+end
+
+
+
+
