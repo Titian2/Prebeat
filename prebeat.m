@@ -43,14 +43,10 @@ function prebeat(talk,samplename,auto,overtemp)
 %
 % Email   simon.tait@glasgow.gla.ac.uk
 %
-% v2.0      - Changes to Log file saving structure. Now saves in easy to read
-%             format with readtable.m
-%           - All outputs from program will be saved on crash or error which
-%             can be resumed on re-running prebeat. 
+% v2.0      - Changes to Log file saving structure. Now saves in easy to read format with readtable.m  - All outputs from program will be saved on crash or error which -  can be resumed on re-running prebeat. 
 % v1.9.3    - Removal of old/new input in favour of automatic directory search
 % v1.9.2    - Improved handling of windowed data for python analysis
-% v1.9.1    - Improved robustness to code running on different operating
-%             systems
+% v1.9.1    - Improved robustness to code running on different operating systems
 % v1.9      - Added filtering to ringdown/scan data to remove large spikes
 % v1.8s     - Option to add automatic Ringdown analysis -ALPHA
 % v1.8      - Now extracts temperature information from log files
@@ -59,9 +55,7 @@ function prebeat(talk,samplename,auto,overtemp)
 % v1.5      - Auto-rejection of 'just-noise' ringdowns
 % v1.4      - Storage of variables optimised for RAM management
 % v1.3      - Functionallity on windows systems has been tested and improved.
-% v1.2      - Fixed known bug for final output summary on command line
-%           - Tweaking of script for diffeent operating systems
-%           - ModeNumber functionallity removed
+% v1.2      - Fixed known bug for final output summary on command line  - Tweaking of script for diffeent operating systems - ModeNumber functionallity removed
 
 
 loadflag = 0; 
