@@ -20,15 +20,17 @@ function [tau,phi,gof,reject,time,Amplitude]=curveAnalysis9(Rfilename,Sfilename,
 %
 %
 % requires cbblindplot for plotting - plots in colorblind friendly colors
+% v1.2.1 - Small changes to fix figures not being generated 05/12/2022
+% v1.2   - Changing handling of 'Not Enough Data' error
+%          :S.Tait 03/2021
 %
-% V1.2 - Changing handling of 'Not Enough Data' error
-%        :S.Tait 03/2021
 %
-%
-% - Edited by S.Tait
+% - Edited by S.Tait 2022
 % - s.tait.1@research.gla.ac.uk
 %
 
+
+currentVersion = 1.2.1
 noscan = 0;
 
 cb=cblindplot;
@@ -57,11 +59,6 @@ end
 % %clean spikes from ringdown data
 time(find((Amplitude>2000))) = NaN;
 Amplitude(find((Amplitude>2000))) = NaN;
-%
-% %clean spikes from scan data
-% outliers = find(isoutlier(Amplitude2,'gesd'));
-% Amplitude2(outliers(Amplitude2(outliers)> median(Amplitude2)*200)) = NaN;
-% time2(outliers(Amplitude2(outliers)> median(Amplitude2)*200)) = NaN;
 
 
 
@@ -85,17 +82,7 @@ else
     else 
         reject = 0; 
     end
-    
-    
-    
-    % fity=D.a*exp(D.b*time);
-    % if mean(diff(D(time)))>(-1E-4)
-    %     reject = 1;
-    %     tau=-1/D.b;
-    %     phi=1/(pi*freq*tau);
-    %     gof=E.adjrsquare;
-    % else
-    
+
     if ~exist('suppress','var')
         if  reject ==0
             figure('Position',XXX);
@@ -132,14 +119,10 @@ else
             
             xlabel('Frequency ')
             ylabel('Amplitude')
-%             pause
-            set(subplot(1,2,2),'FontSize',14)
-            
-            % if reload == 1
-            %         title(sprintf('%0.3f Hz - RELOADED',freq),'FontSize',20)
-            % else
+            set(subplot(1,2,2),'FontSize',14)           
             title(sprintf('%0.3f Hz',freq),'FontSize',20)
-            % end
+            pause(0.5) % for some reason systems seem to  slow down
+            % or not plot the figures at all without this pause in place
         end
     end
     
