@@ -188,16 +188,31 @@ for i =1:numel(groups)
     xlrange_names = char(strcat('A',string(starts(i)),':','A',string(ends(i))));
     
     
-    
-    %write file names to excel
-    chk3 = xlwrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
-    %generate excel cells
-    xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
-    outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
-    
-    %write data to excel
-    chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
-    
+    if ispc ==1
+        %write file names to excel
+        chk3 = xlswrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
+        %generate excel cells
+        xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
+        outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
+
+        %write data to excel
+        chk2 = xlswrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+
+
+    else
+
+
+        %write file names to excel
+        chk3 = xlwrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
+        %generate excel cells
+        xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
+        outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
+
+        %write data to excel
+        chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+
+
+    end
     average_idx = excelidx(outdata(:,end)>0,i);
     try
         if ~isempty(average_idx)
