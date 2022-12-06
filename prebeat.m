@@ -76,11 +76,11 @@ currentVersion = 2.0;
 % end
 
 %% Check for new version - update if newer version exists
-if checkForNewerVersion_MATLAB(currentVersion) 
+if checkForNewerVersion_MATLAB(currentVersion)
     updateInstalledVersion()
 end
 
-%% Look for failed versions in current directory - prompt user to load if exist 
+%% Look for failed versions in current directory - prompt user to load if exist
 loadflag = 0;
 % look for recovery files in current directory
 currentdirs = dir;
@@ -104,7 +104,7 @@ end
 
 clc
 
-%% Set up log file 
+%% Set up log file
 if loadflag ==0
     if strcmpi(samplename,'test')
         mkdir Test
@@ -126,7 +126,7 @@ if loadflag ==0
     clear name ret
 
 
-%% search current directory for ringdown/scan files and match appropriately
+    %% search current directory for ringdown/scan files and match appropriately
     if numel(fnames('scan*'))>1
         prefix ={'scan_'};
         oldnew =2;
@@ -193,13 +193,63 @@ end
 if loadflag ==0
     looprange = 1:length(spec_name);
 else
-    looprange = ii:length(spec_name);
+    if isequal(size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2),ii)
+
+        looprange = ii:length(spec_name);
+    else %  program failed mid run - and some variables are not the right size.
+        looprange = median([size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2)]);
+        % check for log file issues to avoid doubles 
+        looprange =  looprange:length(spec_name);
+        rawText = tex_import(histfile);
+        if sum(~cellfun(@isempty,regexp(rawText,'scan_*','Match'))) == looprange(1)
+            %delete last line of text file
+            tmpfile = fullfile(FolderName,strcat('TMP_Log_',samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt'));
+            hfid2=fopen(tmpfile, 'a+');
+            fprintf(hfid2,'Operator ID:\t %s' , ComputerID)
+            fprintf(hfid2,'\nCreation Time:\t %s',datestr(now))
+            fprintf(hfid2,'\nCurrent Directory:\t %s\n\n',pwd)
+            fprintf(hfid2,'\nScanFileName\tRingfileName\tTemperature\tFrequency\tLabviewMode\tTau\tphi\tRejected\tRawRingdownLength\tOutputLength\txStart\txEnd\tGoodRingdown?\n')
+            goodidx =find(~cellfun(@isempty,regexp(rawText,'scan_*','Match')));
+
+            for k =1:numel(goodidx)-1
+                fprintf(hfid2,rawText{goodidx(k)});
+            end
+            fclose(hfid2);
+            [~,xfile] = fileparts(histfile);
+            copyfile(histfile,fullfile(FolderName,strcat(xfile,'_old.txt')))
+            copyfile(tmpfile,histfile)
+            delete(tmpfile)
+        end
+        clear rawText hfid2 goodidx xfile k
+        
+        %check to see if variables are not the right size on reloading,
+        %loop itteration will start again on median of variable sizes. 
+        loopvars = {'freq','ring_times','ring_amps','eignmode','Temp','phi','ia'};
+        varidx = find([size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2)] ~=looprange(1));
+        
+        for kk = 1:numel(varidx)
+            %check for right dimensions is Nx1 or 100000xN 
+            if eval(sprintf('size(%s,1)>size(%s,2)',loopvars{varidx(kk)} ,loopvars{varidx(kk)} ))
+                eval(sprintf('%s(end) = [];',loopvars{varidx(kk)}))
+            else 
+                 eval(sprintf('%s(:,end) = [];',loopvars{varidx(kk)}))
+            end
+        end 
+
+        sanity = isequal(size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2) );
+        if ~sanity
+            error('An error has been encountered trying to resume from current data')
+            cprintf('err','\n Please seek assistance')
+            return
+        end 
+
+    end
 end
 clear ii
 
 for ii = looprange
     try
-        %   check dimensions of tau 
+        %   check dimensions of tau
         if ii>1
             if size(tau,1)>1
                 cprintf('err','\n Tau dimensions Changed:\tLoop Itt:%d\',ii)
@@ -231,7 +281,7 @@ for ii = looprange
             fprintf('ring file being loaded: %s \n ',char(ring_name(ii,:)));
             fprintf('Mode frequency        : %.4f Hz \n',freq(ii,:));
         end
-%% extract mode numbers fron filenames
+        %% extract mode numbers fron filenames
         test=0;
         while test==0
             if ii>1
@@ -244,7 +294,7 @@ for ii = looprange
             modes(ii) =str2num(ModeNumber{oldnew});
 
 
-%% extract temperatures from log files
+            %% extract temperatures from log files
             if ~exist('overtemp','var')
 
                 try
@@ -271,7 +321,7 @@ for ii = looprange
                 Temp(ii,:) = str2num(cell2mat(overtemp));
             end
 
-%% perform intial fitting - prompt user
+            %% perform intial fitting - prompt user
             if exist('auto','var') && ~isempty(auto)
                 suppress = 'true';
                 [tau(ii),phi(ii),gof(ii),reject(ii)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,suppress);
@@ -304,7 +354,7 @@ for ii = looprange
 
 
 
-%% perform windowing if propmted
+            %% perform windowing if propmted
             if isempty(ShouldKeep)
                 Keep(ii) = 1;
             elseif ShouldKeep=='1'
@@ -441,7 +491,6 @@ for ii = looprange
             if ShouldKeep == 'r'
                 if ii >1
                     ii = reload-1;
-
                     clear reload
                 end
             end
@@ -451,7 +500,7 @@ for ii = looprange
                 cprintf('err','\n Ringdown File :%s',strcat(char(prefix),char(spec_name{ii})))
                 cprintf('err','\n Scan File: %s',strcat('ring_',char(ring_name{ii})))
                 cprintf('err','\n Saving Current state...\n')
-                save('Failed_outputs.mat')
+                save(fullfile(FolderName,'Recovered_outputs.mat'))
                 cprintf('err','\n Exciting...\n')
                 return
             end
@@ -588,7 +637,7 @@ if contains(ComputerID,'ComputerID')
         end
     end
 end
-end 
+end
 
 %% Checking for new versions and self-updating
 % Function used to fetch latest master-branch from github and install in
@@ -596,95 +645,95 @@ end
 
 % Update the installed version of Prebeat from the latest version online
 function updateInstalledVersion()
-    % Download the latest version of Prebeat into the Prebeat folder
-    zipFileName = 'https://github.com/Titian2/Prebeat/archive/master.zip';
-    fprintf('Downloading latest version of %s from %s...\n', 'Prebeat', zipFileName);
-    folderName = fileparts(which(mfilename('fullpath')));
-    targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
-    try
-        folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
-    catch  % hyperlink.m is not properly installed
-        folder = folderName;
-    end
-    try
-        urlwrite(zipFileName,targetFileName); %#ok<URLWR>
-    catch err
-        error('Prebeat_update:download','Error downloading %s into %s: %s\n',zipFileName,targetFileName,err.message);
-    end
-    
-    % Unzip the downloaded zip file in the Prebeat folder
-    fprintf('Extracting %s...\n', targetFileName);
-    try
-        unzip(targetFileName,folderName);
-        % Fix issue #302 - zip file uses an internal folder Prebeat-master
-        subFolder = fullfile(folderName,'Prebeat-master');
-        try movefile(fullfile(subFolder,'*.*'),folderName, 'f'); catch, end %All OSes
-        try movefile(fullfile(subFolder,'*'),  folderName, 'f'); catch, end %MacOS/Unix
-        try movefile(fullfile(subFolder,'.*'), folderName, 'f'); catch, end %MacOS/Unix
-        try rmdir(subFolder); catch, end
-    catch err
-        error('Prebeat:update:unzip','Error unzipping %s: %s\n',targetFileName,err.message);
-    end
-    
-    % Notify the user and rehash
-    fprintf('Successfully installed the latest %s version in %s\n', mfilename, folder);
-    clear functions %#ok<CLFUNC>
-    rehash
+% Download the latest version of Prebeat into the Prebeat folder
+zipFileName = 'https://github.com/Titian2/Prebeat/archive/master.zip';
+fprintf('Downloading latest version of %s from %s...\n', 'Prebeat', zipFileName);
+folderName = fileparts(which(mfilename('fullpath')));
+targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
+try
+    folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
+catch  % hyperlink.m is not properly installed
+    folder = folderName;
+end
+try
+    urlwrite(zipFileName,targetFileName); %#ok<URLWR>
+catch err
+    error('Prebeat_update:download','Error downloading %s into %s: %s\n',zipFileName,targetFileName,err.message);
+end
+
+% Unzip the downloaded zip file in the Prebeat folder
+fprintf('Extracting %s...\n', targetFileName);
+try
+    unzip(targetFileName,folderName);
+    % Fix issue #302 - zip file uses an internal folder Prebeat-master
+    subFolder = fullfile(folderName,'Prebeat-master');
+    try movefile(fullfile(subFolder,'*.*'),folderName, 'f'); catch, end %All OSes
+    try movefile(fullfile(subFolder,'*'),  folderName, 'f'); catch, end %MacOS/Unix
+    try movefile(fullfile(subFolder,'.*'), folderName, 'f'); catch, end %MacOS/Unix
+    try rmdir(subFolder); catch, end
+catch err
+    error('Prebeat:update:unzip','Error unzipping %s: %s\n',targetFileName,err.message);
+end
+
+% Notify the user and rehash
+fprintf('Successfully installed the latest %s version in %s\n', mfilename, folder);
+clear functions %#ok<CLFUNC>
+rehash
 end
 
 
 % Check for newer version (only once a day)
 function isNewerVersionAvailable = checkForNewerVersion_MATLAB(currentVersion)
-    persistent lastCheckTime lastVersion
-    isNewerVersionAvailable = false;
-    %     if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
-    url ='https://raw.githubusercontent.com/Titian2/Prebeat/main/prebeat.m';
-    try
-        str = webread(url);
-        cll = strsplit(str, '\n')';    
-        versionHistory = regexp(str, '\%\s+v\d+[.](.*?)\n','Match')';
-        versionHistory = regexp(versionHistory,'(v\d\.\d) | (v\d\.\d\w) | (v\d\.\d\.\d)','Match');
-        versionHistory = [versionHistory{:}]';
-        versionHistory = cellfun(@(str)regexprep(str,'\s+', ''),versionHistory ,'UniformOutput',false);
-    
-        a = cellfun(@(str)regexp(str,'\d+','Match'),versionHistory,'UniformOutput',false);
-    
-        for i =1:numel(a)
-            if size(a{i},2) < 3
-                a{i} = [a{i},'0'];
-            end
-            versionNum(i) = str2num(cell2mat(a{i}(1:3)));
+persistent lastCheckTime lastVersion
+isNewerVersionAvailable = false;
+%     if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
+url ='https://raw.githubusercontent.com/Titian2/Prebeat/main/prebeat.m';
+try
+    str = webread(url);
+    cll = strsplit(str, '\n')';
+    versionHistory = regexp(str, '\%\s+v\d+[.](.*?)\n','Match')';
+    versionHistory = regexp(versionHistory,'(v\d\.\d) | (v\d\.\d\w) | (v\d\.\d\.\d)','Match');
+    versionHistory = [versionHistory{:}]';
+    versionHistory = cellfun(@(str)regexprep(str,'\s+', ''),versionHistory ,'UniformOutput',false);
+
+    a = cellfun(@(str)regexp(str,'\d+','Match'),versionHistory,'UniformOutput',false);
+
+    for i =1:numel(a)
+        if size(a{i},2) < 3
+            a{i} = [a{i},'0'];
         end
-    
-        latestVersion = max(versionNum)/100;
-    
-        if nargin < 1
-            currentVersion = lastVersion;
-        else
-            currentVersion = currentVersion + 1e3*eps;
-        end
-        isNewerVersionAvailable = latestVersion > currentVersion;
-        if isNewerVersionAvailable
-            try
-                versionDesc = cll(find(contains(cll,versionHistory)));
-                versionDesc = regexprep(extractAfter(versionDesc,versionHistory),'\s{2,}','');
-            catch
-                % Something bad happened - only display the latest version description
-                versionDesc = {'version description not avalible'};
-            end
-            try versionDesc = strjoin(strrep(strcat(' ***', strtrim(strsplit(versionDesc,';'))),'***','* '), char(10)); catch, end %#ok<CHARTEN>
-            msg = sprintf(['You are using version %g of Prebeat. A newer version (%g) is available, with the following improvements/fixes:\n\n %s\n\n',... ,
-                'A change-log of recent releases is available here; the complete change-log is included at the top of the Prebeat.m file.\n',...
-                'You can download the new version from GitHub'],currentVersion, latestVersion,string(versionDesc{1}));
-            msg = hyperlink('https://github.com/Titian2/Prebeat/', 'GitHub', msg);
-            msg = hyperlink('matlab:Prebeat(''-update'')', msg);
-            warning('Prebeat:version',msg);
-        end
-    catch
-        % ignore
+        versionNum(i) = str2num(cell2mat(a{i}(1:3)));
     end
-    lastCheckTime = now;
-    lastVersion = currentVersion;
+
+    latestVersion = max(versionNum)/100;
+
+    if nargin < 1
+        currentVersion = lastVersion;
+    else
+        currentVersion = currentVersion + 1e3*eps;
+    end
+    isNewerVersionAvailable = latestVersion > currentVersion;
+    if isNewerVersionAvailable
+        try
+            versionDesc = cll(find(contains(cll,versionHistory)));
+            versionDesc = regexprep(extractAfter(versionDesc,versionHistory),'\s{2,}','');
+        catch
+            % Something bad happened - only display the latest version description
+            versionDesc = {'version description not avalible'};
+        end
+        try versionDesc = strjoin(strrep(strcat(' ***', strtrim(strsplit(versionDesc,';'))),'***','* '), char(10)); catch, end %#ok<CHARTEN>
+        msg = sprintf(['You are using version %g of Prebeat. A newer version (%g) is available, with the following improvements/fixes:\n\n %s\n\n',... ,
+            'A change-log of recent releases is available here; the complete change-log is included at the top of the Prebeat.m file.\n',...
+            'You can download the new version from GitHub'],currentVersion, latestVersion,string(versionDesc{1}));
+        msg = hyperlink('https://github.com/Titian2/Prebeat/', 'GitHub', msg);
+        msg = hyperlink('matlab:Prebeat(''-update'')', msg);
+        warning('Prebeat:version',msg);
+    end
+catch
+    % ignore
+end
+lastCheckTime = now;
+lastVersion = currentVersion;
 end
 
 

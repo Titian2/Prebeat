@@ -131,7 +131,14 @@ counts = counts2';
 
 %write headings to excel
 fprintf('\n Writing Data...')
-chk = xlwrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
+
+if ispc ==1 
+    chk = xlswrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
+else 
+    chk = xlwrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
+end 
+
+
 
 %calculate starts and ends of each frequency for nice excel formatting
 ends = cumsum(counts)+2 +[0,1:numel(counts)-1]';
@@ -149,9 +156,6 @@ for i =1:numel(groups)
     %sort so that negative values are at the bottom
     outdata = results(groupidx(~isnan(groupidx(:,i)),i),:);
     
-    
-    
-    
     %generate names for fit figures produced by python
     % these will be used to hyperlink - ADD THIS LATER USING DROPBOX API
     fitnames = strcat('fit_',string(outdata(:,8)),'.png');
@@ -160,6 +164,7 @@ for i =1:numel(groups)
         %user checking fit is okay
         try
             imshow(sprintf('%s',which(fitnames{k})),'InitialMagnification',300)
+            pause(0.5)
             fitcheck{k,i} = input('\nAre you happy with this fit [Y/N] \n','s');
             
             
@@ -229,14 +234,21 @@ end
 %     out(j,:) = {string(sprintf('=AVERAGE(B%d:B%d)',starts(j),ends(j))),string(sprintf('=AVERAGE(C%d:C%d)',starts(j),ends(j))),string(sprintf('=AVERAGE(D%d:D%d)',starts(j),ends(j))),string(sprintf('=STDEV(C%d:C%d)',starts(j),ends(j))),string(sprintf('=STDEV(D%d:D%d)',starts(j),ends(j)))};
 % end
 
-
-xlwrite(fullfile(xlpath,xlfile),{'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'} ,sheetname,char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
-
+if ispc ==1 
+    xlswrite(fullfile(xlpath,xlfile),{'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'} ,sheetname,char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+else 
+    xlwrite(fullfile(xlpath,xlfile),{'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'} ,sheetname,char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+end
 %write formulae to excel
 if any(sum((cellfun(@isempty,outform)))>1)
     outform(find(cellfun(@isempty,outform))) = {'NaN'};
 end
-xlwrite(fullfile(xlpath,xlfile),outform,sheetname,char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+
+if ispc ==1 
+    xlswrite(fullfile(xlpath,xlfile),outform,sheetname,char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+else 
+    xlwrite(fullfile(xlpath,xlfile),outform,sheetname,char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+end 
 
 
 
