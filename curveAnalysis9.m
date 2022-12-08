@@ -30,7 +30,7 @@ function [tau,phi,gof,reject,time,Amplitude]=curveAnalysis9(Rfilename,Sfilename,
 %
 
 
-currentVersion = 1.2.1
+currentVersion = 1.2;
 noscan = 0;
 
 cb=cblindplot;
