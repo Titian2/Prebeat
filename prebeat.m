@@ -15,7 +15,6 @@ function prebeat(talk,samplename,auto,overtemp)
 % in the current directory and subfolders for the saved files and
 % automatically resume at the crashed point.
 %
-%       HI 
 %
 %           prebeat(verbose,'samplename')
 %
