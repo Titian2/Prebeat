@@ -24,8 +24,14 @@ function beat_excel(xlpath,topwhitespace)
 %
 %
 %
-% Author S.tait 2022
+% Author S.tait 2023
 % simon.tait@glasgow.ac.uk
+%
+% 
+% v1.0.1    - Bug fixes and changes to writecell and writematrix functions
+%             to enable writing to excel on windows systems. Also added a cleaning up
+%             system which zips all images and pickle files after user review to save
+%             space.
 %
 
 if ~exist('xlpath','var')
@@ -133,7 +139,8 @@ counts = counts2';
 fprintf('\n Writing Data...')
 
 if ispc ==1 
-    chk = xlswrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
+    writecell(xlheadings,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_heading)
+    % chk = xlswrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
 else 
     chk = xlwrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
 end 
@@ -143,6 +150,11 @@ end
 %calculate starts and ends of each frequency for nice excel formatting
 ends = cumsum(counts)+2 +[0,1:numel(counts)-1]';
 starts = (ends-counts)+1;
+
+starts = [starts(1);starts(2:end)+1];
+
+
+
 
 for i =1:numel(groups)
     groupidx(:,i) = dynamic(find(ismember(labels,groups(i))),max(counts),'NaN');
@@ -188,48 +200,57 @@ for i =1:numel(groups)
     xlrange_names = char(strcat('A',string(starts(i)),':','A',string(ends(i))));
     
     
-    if ispc ==1
-        %write file names to excel
-        chk3 = xlswrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
-        %generate excel cells
-        xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
-        outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
-
-        %write data to excel
-        chk2 = xlswrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
-
+    
+    %write file names to excel
+    if ispc
+        % chk3 = xlswrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
+        writecell(hypernames',fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_names)
 
     else
-
-
-        %write file names to excel
         chk3 = xlwrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
-        %generate excel cells
-        xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
-        outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
-
-        %write data to excel
-        chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
-
-
     end
+
+
+    %generate excel cells
+    xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
+    outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
+    
+    %write data to excel
+    if ispc 
+    % chk2 = xlswrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+    writematrix(outdata,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_data)
+    else 
+    chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+    end 
     average_idx = excelidx(outdata(:,end)>0,i);
     try
         if ~isempty(average_idx)
             outform{i,1} = strcat('=AVERAGE(',csvstring(strcat('B',string(average_idx))),')');
+            pause(0.5)
             outform{i,2} = strcat('=AVERAGE(',csvstring(strcat('C',string(average_idx))),')');
+            pause(0.5)
             outform{i,3} = strcat('=AVERAGE(',csvstring(strcat('D',string(average_idx))),')');
+            pause(0.5)
             outform{i,4} = strcat('=STDEV(',csvstring(strcat('C',string(average_idx))),')');
+            pause(0.5)
             outform{i,5} = strcat('=STDEV(',csvstring(strcat('D',string(average_idx))),')');
+            pause(0.5)
             outform{i,6} = strcat('=AVERAGE(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
+            pause(0.5)
             outform{i,7} = strcat('=STDEV(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
         else
             outform{i,1} = 'NaN';
+            pause(0.5)
             outform{i,2} = 'NaN';
+            pause(0.5)
             outform{i,3} = 'NaN';
+            pause(0.5)
             outform{i,4} = 'NaN';
+            pause(0.5)
             outform{i,5} = 'NaN';
+            pause(0.5)
             outform{i,6} = 'NaN';
+            pause(0.5)
             outform{i,7} = 'NaN';
         end
     end
@@ -250,9 +271,22 @@ end
 % end
 
 if ispc ==1 
-    xlswrite(fullfile(xlpath,xlfile),{'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'} ,sheetname,char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+    write_range = char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
+    table_headings = {'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'};
+
+    writecell(table_headings,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',write_range)
+
+
+    % xlswrite(fullfile(xlpath,xlfile),table_headings,sheetname,write_range);
+    pause(0.5)
 else 
-    xlwrite(fullfile(xlpath,xlfile),{'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'} ,sheetname,char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+    write_range = char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
+    table_headings = {'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'};
+
+    xlwrite(fullfile(xlpath,xlfile),table_headings,sheetname,write_range);
+
+
+    pause(0.5)
 end
 %write formulae to excel
 if any(sum((cellfun(@isempty,outform)))>1)
@@ -260,9 +294,20 @@ if any(sum((cellfun(@isempty,outform)))>1)
 end
 
 if ispc ==1 
-    xlswrite(fullfile(xlpath,xlfile),outform,sheetname,char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+    
+    outform_range = char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
+    
+    writecell(outform,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',outform_range)
+    % xlswrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
+
+
+    pause(0.5)
 else 
-    xlwrite(fullfile(xlpath,xlfile),outform,sheetname,char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1))));
+    outform_range = char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
+    xlwrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
+
+
+    pause(0.5)
 end 
 
 
@@ -275,6 +320,37 @@ reply =input('Do you wish to open the excel file ? [Y/N]','s');
 if contains(lower(reply),'y')
 system(sprintf('! open %s', char(fullfile(xlpath,xlfile))    ))
 end 
+
+
+fprintf('\n Cleaning up directory...\n')
+% Step 1: Find the files
+filePattern = fullfile('.', 'fit*.png');
+fileList = dir(filePattern);
+
+% Step 2: Create the zip archive
+zipFilename = 'fit_images.zip';
+filesToZip = strcat({fileList.folder}, filesep, {fileList.name});
+zip(zipFilename, filesToZip);
+
+% Step 3: Delete the images
+for i = 1:numel(fileList)
+    delete(fullfile(fileList(i).folder, fileList(i).name));
+end
+
+% Step 1: Find the files
+filePattern = fullfile('.', '*.pickle');
+fileList = dir(filePattern);
+
+% Step 2: Create the zip archive
+zipFilename = 'Pickles.zip';
+filesToZip = strcat({fileList.folder}, filesep, {fileList.name});
+zip(zipFilename, filesToZip);
+
+% Step 3: Delete the images
+for i = 1:numel(fileList)
+    delete(fullfile(fileList(i).folder, fileList(i).name));
+end
+
 
 
 
