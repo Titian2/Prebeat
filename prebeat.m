@@ -43,6 +43,7 @@ function prebeat(talk,samplename,auto,overtemp)
 %
 % Email   simon.tait@glasgow.gla.ac.uk
 %
+% v2.0.1    - Bug fixes and stability fixes on windows machines. 
 % v2.0      - Changes to Log file saving structure. Now saves in easy to read
 %             format with readtable.m
 %           - All outputs from program will be saved on crash or error which
@@ -621,7 +622,7 @@ cd(FolderName);
 %functionallity currently uses python and Linux base commands - this will
 %not work for other systems and needs to be fixed before rolling out to
 %everyone
-if contains(ComputerID,'ComputerID')
+% if contains(ComputerID,'ComputerID')
     reply = input('\nPerform Python Analysis? [Y/N] \n','s');
     if contains(lower(reply),'y')
 
@@ -636,8 +637,8 @@ if contains(ComputerID,'ComputerID')
             beat_excel
         end
     end
-end
-end
+% end
+end 
 
 %% Checking for new versions and self-updating
 % Function used to fetch latest master-branch from github and install in

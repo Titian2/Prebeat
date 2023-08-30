@@ -141,6 +141,7 @@ fprintf('\n Writing Data...')
 if ispc ==1 
     writecell(xlheadings,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_heading)
     % chk = xlswrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
+
 else 
     chk = xlwrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
 end 
@@ -200,7 +201,6 @@ for i =1:numel(groups)
     xlrange_names = char(strcat('A',string(starts(i)),':','A',string(ends(i))));
     
     
-    
     %write file names to excel
     if ispc
         % chk3 = xlswrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
@@ -222,7 +222,10 @@ for i =1:numel(groups)
     else 
     chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
     end 
+
     average_idx = excelidx(outdata(:,end)>0,i);
+    average_idx = average_idx(~isnan(average_idx));
+
     try
         if ~isempty(average_idx)
             outform{i,1} = strcat('=AVERAGE(',csvstring(strcat('B',string(average_idx))),')');
@@ -235,9 +238,12 @@ for i =1:numel(groups)
             pause(0.5)
             outform{i,5} = strcat('=STDEV(',csvstring(strcat('D',string(average_idx))),')');
             pause(0.5)
-            outform{i,6} = strcat('=AVERAGE(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
+            % outform{i,6} = strcat('=AVERAGE(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
+            outform{i,6} = strcat('=AVERAGE(',csvstring(strcat('L',string(average_idx))),')');
             pause(0.5)
-            outform{i,7} = strcat('=STDEV(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
+            % outform{i,7} = strcat('=STDEV(',csvstring(strcat('L',string(excelidx(find(~isnan(outdata(:,end-1))),i)))),')');
+            outform{i,7} = strcat('=STDEV(',csvstring(strcat('L',string(average_idx))),')');
+
         else
             outform{i,1} = 'NaN';
             pause(0.5)
@@ -276,9 +282,9 @@ if ispc ==1
 
     writecell(table_headings,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',write_range)
 
-
     % xlswrite(fullfile(xlpath,xlfile),table_headings,sheetname,write_range);
     pause(0.5)
+	
 else 
     write_range = char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
     table_headings = {'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'};
@@ -287,6 +293,7 @@ else
 
 
     pause(0.5)
+	
 end
 %write formulae to excel
 if any(sum((cellfun(@isempty,outform)))>1)
@@ -300,16 +307,12 @@ if ispc ==1
     writecell(outform,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',outform_range)
     % xlswrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
 
-
     pause(0.5)
 else 
     outform_range = char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
     xlwrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
 
-
-    pause(0.5)
 end 
-
 
 
 cprintf('text','Done\n')
@@ -322,7 +325,7 @@ system(sprintf('! open %s', char(fullfile(xlpath,xlfile))    ))
 end 
 
 
-fprintf('\n Cleaning up directory...\n')
+fprintf('\n Cleaning up directory...')
 % Step 1: Find the files
 filePattern = fullfile('.', 'fit*.png');
 fileList = dir(filePattern);
@@ -352,7 +355,9 @@ for i = 1:numel(fileList)
 end
 
 
-
+fprintf('Done\n')
+pause(0.2)
+clc 
 
 
 
