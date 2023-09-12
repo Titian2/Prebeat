@@ -1,71 +1,73 @@
 
 function pre_fit_py
-% directory and replaces the definition of the prefix variable in the
-% notebook with the path of the current directory
 %
-% Author S.Tait 2022
+% function copies fit_ringdowns_degenerate_cmd.ipynb to current
+% directory and replaces the definition of the prefix variable in the
+% notebook with the path of the current directory 
+%
+%
+%
+% v1.1   - changes to file handling. Moving away from linux based
+%           interfaces to MATLAB file handling protocols
+%
+%
+% Author S.Tait 2021 
+
+
+copyfile(fullfile(fileparts(which('prebeat.m')), 'fit_ringdowns_degenerate_cmd.ipynb'),pwd)
+
+rawText =tex_import(char(fnames('fit_ringdowns*cmd.ipynb')));
+
+out = regexp(rawText,'prefix = ','Match');
+lines = find(~cellfun(@isempty,out));
+
 
 if ismac
-    ! cp ~/Dropbox/Python/FitBeats/fit_ringdowns_degenerate_cmd.ipynb .
-elseif ispc
-    pyfilepath = extractBefore(which('prebeat.m'),'prebeat.m');
-    copyfile(fullfile(pyfilepath,'fit_ringdowns_degenerate_cmd.ipynb'),pwd)
+
+oldpath = regexprep(rawText(lines),{'"prefix = \\"','\\"\\n",'},'');
+
+rawText(lines) = strrep(rawText(lines),oldpath,pwd);
+
+end 
+
+   
+if ispc
+    str = rawText(lines);
+    idx = regexp(str,'"') ;
+    t =char(str);
+    oldpath = t(idx{:}(2):idx{:}(3));
+
+    rawText(lines) = strrep(rawText(lines),oldpath,strcat('r',pwd,'"'));
+end 
+
+
+if ~isempty(find(contains(rawText,'makeplot=False')))
+    rawText(find(contains(rawText,'makeplot=False'))) = strrep(rawText(find(contains(rawText,'makeplot=False'))),'makeplot=False','makeplot=True');
+end 
+
+fid2 = fopen('fit_ringdowns_degenerate_cmd.ipynb','wt');
+
+for k =1:numel(rawText)
+    
+fprintf(fid2,'%s',string(rawText{k}));
 end
-
-notebookFile = 'fit_ringdowns_degenerate_cmd.ipynb';
-
-modify_ipynb(fullfile(pwd,notebookFile),pwd);
-
+fclose(fid2);
 
 cprintf('hyper','\n\nRunning Python Analysis\n\n')
 
-!papermill fit_ringdowns_degenerate_cmd_modified.ipynb output.ipynb
+!papermill fit_ringdowns_degenerate_cmd.ipynb output.ipynb
 pause(5)
+if ismac
+! mv ./fit_ringdowns_degenerate_cmd.ipynb ./deleteme.ipynb
+! mv ./output.ipynb ./fit_ringdowns_degenerate_cmd.ipynb
+! rm deleteme.ipynb
+end 
+
+if ispc
 
 movefile("fit_ringdowns_degenerate_cmd.ipynb","deleteme.ipynb")
-movefile("fit_ringdowns_degenerate_cmd_modified.ipynb","deleteme2.ipynb")
 movefile("output.ipynb","fit_ringdowns_degenerate_cmd.ipynb")
 delete("deleteme.ipynb")
-delete("deleteme2.ipynb")
 
-
-function modify_ipynb(file_path, new_prefix)
-    % Read the file content as a JSON
-    fid = fopen(file_path, 'r', 'n', 'UTF-8');
-    raw = fread(fid, inf, 'uint8=>char')';
-    fclose(fid);
-    data = jsondecode(raw);
-    
-    new_prefix = strcat('"', new_prefix, '"');
-    if ispc 
-        new_prefix = strcat('r',new_prefix);
-    end
-
-    % Modify content
-    for i = 1:size(data.cells,1)
-        cell = data.cells(i);
-        if strcmp(cell.cell_type, 'code')
-            for j = 1:length(cell.source)
-                line = cell.source{j};
-                if startsWith(strtrim(line), 'prefix =')
-                    % Split the line at '=' and only modify the part after it
-                    data.cells(i).source(j) = join({'prefix =', new_prefix,newline}); 
-                    break; % Break out if the line is found and modified
-                end
-            end
-        end
-    end
-
-    % Write the modified content back to file
-    modified_content = jsonencode(data,'PrettyPrint',true);
-    modified_path = strrep(file_path,'.ipynb','_modified.ipynb');
-
-    fid = fopen(modified_path, 'w', 'n', 'UTF-8');
-    fprintf(fid,'%s', modified_content);
-    fclose(fid);
-end
-
-
-
-
-end
+end 
+end  
