@@ -1,6 +1,6 @@
 function prebeat(talk,samplename,auto,overtemp)
 %
-% Current Version 2.0
+% Current Version 2.1
 %
 % This function takes ringdown data from mechanical loss systems and allows
 % for logical inspection of the data. A simple 'pass' / 'reject' can be
