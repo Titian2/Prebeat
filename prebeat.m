@@ -1,6 +1,6 @@
 function prebeat(talk,samplename,auto,overtemp)
 %
-% Current Version 2.0
+% Current Version 2.1
 %
 % This function takes ringdown data from mechanical loss systems and allows
 % for logical inspection of the data. A simple 'pass' / 'reject' can be
@@ -43,7 +43,10 @@ function prebeat(talk,samplename,auto,overtemp)
 %
 % Email   simon.tait@glasgow.gla.ac.uk
 %
-% v2.0.1    - Bug fixes and stability fixes on windows machines. 
+% v2.1    - Updates to protocols for getting temperatures from log files
+%             which could cause errors on repeat ringdowns. Updates have
+%             also been made to autorejection of ringdowns. Upgrades to
+%             robustness of file handling.
 % v2.0      - Changes to Log file saving structure. Now saves in easy to read
 %             format with readtable.m
 %           - All outputs from program will be saved on crash or error which
@@ -64,7 +67,7 @@ function prebeat(talk,samplename,auto,overtemp)
 %           - Tweaking of script for diffeent operating systems
 %           - ModeNumber functionallity removed
 %
-currentVersion = 2.0;
+currentVersion = 2.1;
 
 % for a = 1:nargin-3  % only process varargin, no other parse_args() arguments
 %     thisArg = varargin{a};
@@ -131,7 +134,7 @@ if loadflag ==0
     if numel(fnames('scan*'))>1
         prefix ={'scan_'};
         oldnew =2;
-    elseif numel(fnames('spec'))>1
+    elseif numel(fnames('spec*'))>1
         prefix = {'spec_'};
         oldnew =1;
     else
@@ -173,13 +176,7 @@ if loadflag ==0
     %cloud services like Dropbox or OneDrive
     tic
     for ii = 1:length(spec_name)
-
-        if toc>60 && length(spec_name)<400
-            numLines(ii) = getLines(strcat(char(strcat('ring_',ring_name{ii}))));
-        else
-            numLines = ones(size(spec_name)).*100000;
-            ii =length(spec_name);
-        end
+        numLines(ii,:) = getLines(strcat(char(strcat('ring_',ring_name{ii}))));
     end
 
     C=0;
@@ -187,76 +184,47 @@ if loadflag ==0
     counter = 0;
 %%
     histfile =  fullfile(FolderName,strcat('Log_',samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt'));
-    hfid=fopen(histfile, 'a+');
+    
 end
 %%
 %define measurements to analyse based on if previous data has been found
 if loadflag ==0
     looprange = 1:length(spec_name);
 else
-    if isequal(size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2),ii)
-
-        looprange = ii:length(spec_name);
-    else %  program failed mid run - and some variables are not the right size.
-        looprange = median([size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2)]);
-        % check for log file issues to avoid doubles 
-        looprange =  looprange:length(spec_name);
-        rawText = tex_import(histfile);
-        if sum(~cellfun(@isempty,regexp(rawText,'scan_*','Match'))) == looprange(1)
-            %delete last line of text file
-            tmpfile = fullfile(FolderName,strcat('TMP_Log_',samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt'));
-            hfid2=fopen(tmpfile, 'a+');
-            fprintf(hfid2,'Operator ID:\t %s' , ComputerID)
-            fprintf(hfid2,'\nCreation Time:\t %s',datestr(now))
-            fprintf(hfid2,'\nCurrent Directory:\t %s\n\n',pwd)
-            fprintf(hfid2,'\nScanFileName\tRingfileName\tTemperature\tFrequency\tLabviewMode\tTau\tphi\tRejected\tRawRingdownLength\tOutputLength\txStart\txEnd\tGoodRingdown?\n')
-            goodidx =find(~cellfun(@isempty,regexp(rawText,'scan_*','Match')));
-
-            for k =1:numel(goodidx)-1
-                fprintf(hfid2,rawText{goodidx(k)});
-            end
-            fclose(hfid2);
-            [~,xfile] = fileparts(histfile);
-            copyfile(histfile,fullfile(FolderName,strcat(xfile,'_old.txt')))
-            copyfile(tmpfile,histfile)
-            delete(tmpfile)
-        end
-        clear rawText hfid2 goodidx xfile k
-        
-        %check to see if variables are not the right size on reloading,
-        %loop itteration will start again on median of variable sizes. 
-        loopvars = {'freq','ring_times','ring_amps','eignmode','Temp','phi','ia'};
-        varidx = find([size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2)] ~=looprange(1));
-        
-        for kk = 1:numel(varidx)
-            %check for right dimensions is Nx1 or 100000xN 
-            if eval(sprintf('size(%s,1)>size(%s,2)',loopvars{varidx(kk)} ,loopvars{varidx(kk)} ))
-                eval(sprintf('%s(end) = [];',loopvars{varidx(kk)}))
-            else 
-                 eval(sprintf('%s(:,end) = [];',loopvars{varidx(kk)}))
-            end
-        end 
-
-        sanity = isequal(size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2) );
-        if ~sanity
-            error('An error has been encountered trying to resume from current data')
-            cprintf('err','\n Please seek assistance')
-            return
-        end 
-
-    end
+    looprange = ii:length(spec_name);
 end
 clear ii
 
+
+
+% initialise structure for size checking
+prevSizes.Temp = 0;
+prevSizes.freq = 0;
+prevSizes.ia = [0,0];
+prevSizes.modes = 0;
+prevSizes.phi = 0;
+prevSizes.ring_amps = [0,0];
+prevSizes.ring_times = [0,0];
+prevSizes.tau = 0;
+
+           
+
+hfid=fopen(histfile, 'a+');
+fprintf(hfid,'Operator ID:\t %s' , ComputerID);
+fprintf(hfid,'\nCreation Time:\t %s',datestr(now));
+fprintf(hfid,'\nCurrent Directory:\t %s\n\n',pwd);
+fprintf(hfid,'\nScanFileName\tRingfileName\tTemperature\tFrequency\tLabviewMode\tTau\tphi\tRejected\tRawRingdownLength\tOutputLength\txStart\txEnd\tGoodRingdown?');
+fclose(hfid);
+
+
+
+counter = getLines(histfile);
+
 for ii = looprange
+
     try
         %   check dimensions of tau
-        if ii>1
-            if size(tau,1)>1
-                cprintf('err','\n Tau dimensions Changed:\tLoop Itt:%d\',ii)
-                break
-            end
-        end
+
 
         try
             % if contains(spec_name{ii},'_7_m1_r1.txt')
@@ -295,30 +263,24 @@ for ii = looprange
             ModeNumber = regexp(ring_name{ii},'\d{1,2}','Match');
 
             outputfile=strcat(FolderName,filesep,sprintf('Processed_Mode%d_',str2num(ModeNumber{oldnew})),samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt');
-            modes(ii) =str2num(ModeNumber{oldnew});
+            modes(ii,:) =str2num(ModeNumber{oldnew});
 
 
             %% extract temperatures from log files
             if ~exist('overtemp','var')
-
-                try
-                    % find log file for ringdown to extract temperature values
-                    A = readtable(sprintf('log_m%d.txt',str2num(ModeNumber{oldnew})));
-                    %find specific line in log file from ringdown file name
-                    temp_idx = first(find(A.Var1 == str2num(ModeNumber{1})  & A.Var2 == str2num(ModeNumber{3})));
-                    %extract temperature value
-                    Temp(ii,:) = A.Var3(temp_idx);
-                catch
-                    Temp(ii,:)  = [];
-                end
-                if ~isempty(temp_idx)
-                    Temp(ii,:) = A.Var3(first(find(A.Var1 == str2num(ModeNumber{1})  & A.Var2 == str2num(ModeNumber{3}))));
-                else
-                    Temp(ii,:) = NaN;
-                    if talk
-                        cprintf('err','No Matching Data for %s could be found in %s',ring_files1(ii).name,sprintf('log_m%d.txt',str2num(ModeNumber{oldnew})));
-                        cprintf('err','\n Temperature : NaN - No Log File Entry Could be Found\n');
-                    end
+                % find log file for ringdown to extract temperature values
+                A = readtable(sprintf('log_m%d.txt',str2num(ModeNumber{oldnew})));
+                %find specific line in log file from ringdown file name
+                %                     try
+                temp_idx = first(find(A.Var1 == str2num(ModeNumber{1})  & A.Var2 == str2num(ModeNumber{3})));
+                
+                if ~isempty(temp_idx) && ~isnan(temp_idx)
+                %extract temperature value
+                Temp(ii,:) = A.Var3(temp_idx);    
+                elseif isnan(temp_idx)
+                    Temp(ii,:) = NaN;                  
+                    cprintf('err','No Matching Data for %s could be found in %s',ring_files1(ii,:).name,sprintf('log_m%d.txt',str2num(ModeNumber{oldnew})));
+                    cprintf('err','\n Temperature : NaN - No Log File Entry Could be Found\n');                  
                     clear temp_idx
                 end
             else
@@ -328,27 +290,27 @@ for ii = looprange
             %% perform intial fitting - prompt user
             if exist('auto','var') && ~isempty(auto)
                 suppress = 'true';
-                [tau(ii),phi(ii),gof(ii),reject(ii)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,suppress);
+                [tau(ii,:),phi(ii,:),gof(ii,:),reject(ii,:)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,suppress);
 
             else
-                [tau(ii),phi(ii),gof(ii),reject(ii)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload);
+                [tau(ii,:),phi(ii,:),gof(ii,:),reject(ii,:)]=curveAnalysis9(RFilename,SFilename,freq(ii,:),reload);
             end
 
             if exist('auto','var') && ~isempty(auto) && reject(ii ) == 0
                 ShouldKeep= '' ;
-                if  gof(ii)==0
+                if  gof(ii,:)==0
                     break
                 end
             elseif exist('auto','var') && ~isempty(auto) && reject(ii ) == 1
                 ShouldKeep ='n';
-                [tau(ii),phi(ii),gof(ii),reject(ii ),ringdata1,ringdata2] = curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,'');
-                if gof(ii) ==0
+                [tau(ii,:),phi(ii,:),gof(ii,:),reject(ii,:),ringdata1,ringdata2] = curveAnalysis9(RFilename,SFilename,freq(ii,:),reload,'');
+                if gof(ii,:) ==0
                     close
                 end
 
             else
                 suppress ='' ;
-                if reject(ii) == 1
+                if reject(ii,:) == 1
                     ShouldKeep = 'n';
                 else
                     ShouldKeep = input('Leave empty to keep, 1 to re-fit, n to reject or r to re-do. \n','s');
@@ -360,16 +322,16 @@ for ii = looprange
 
             %% perform windowing if propmted
             if isempty(ShouldKeep)
-                Keep(ii) = 1;
+                Keep(ii,:) = 1;
             elseif ShouldKeep=='1'
-                [tau(ii),phi(ii),gof(ii),times,Amplitudes,goodpoints,cutpoints]=curveAnalysis3(RFilename,SFilename,freq(ii,:));
+                [tau(ii,:),phi(ii,:),gof(ii,:),times,Amplitudes,goodpoints,cutpoints]=curveAnalysis3(RFilename,SFilename,freq(ii,:));
+                pause(1)
                 newtimes = times(goodpoints>0);
                 newAmplitudes = Amplitudes(goodpoints>0);
 
-                Keep(ii) = 1;
-                counter = counter +1 ;
+                Keep(ii,:) = 1;               
             else
-                Keep(ii) = 0;
+                Keep(ii,:) = 0;
             end
 
 
@@ -399,7 +361,7 @@ for ii = looprange
 
                 fid=fopen(outputfile, 'a+');
                 fprintf(fid,'%2.4f\t%5.4f\t%2.3f\t%g\t%d\n',...
-                    Temp(ii),freq(ii),tau(ii),gof(ii),Keep(ii));
+                    Temp(ii,:),freq(ii,:),tau(ii,:),gof(ii,:),Keep(ii,:));
                 fclose(fid);
 
                 if floor(cutpoints(1))<0
@@ -417,7 +379,7 @@ for ii = looprange
                 test=1 ;
             end
 
-            if Keep(ii) == 0
+            if Keep(ii,:) == 0
                 if ShouldKeep=='n'
                     fprintf('*Ringdown rejected*\n')
 
@@ -430,17 +392,17 @@ for ii = looprange
                         ring_amps(:,ii)  = [NaN(length(ringdata2),1); NaN(matchk-length(ringdata2),1)];
                         tmp =[NaN(length(ringdata2),1); NaN(matchk-length(ringdata2),1)];
                         eignmode(:,ii)   = NaN;
-                        freq(ii)       = NaN;
+                        freq(ii,:)       = NaN;
                         ia(:,ii)        = tmp ;
-                        tau(ii)        = NaN;
-                        phi(ii)        = NaN;
-                        Temp(ii)       = NaN;
+                        tau(ii,:)        = NaN;
+                        phi(ii,:)        = NaN;
+                        Temp(ii,:)       = NaN;
 
                     end
 
                     fid=fopen(outputfile, 'a+');
                     fprintf(fid,'%2.4f\t%5.4f\t%2.3f\t%g\t%d\n',...
-                        Temp(ii),freq(ii),tau(ii),gof(ii),Keep(ii));
+                        Temp(ii,:),freq(ii,:),tau(ii,:),gof(ii,:),Keep(ii,:));
                     fclose(fid);
 
                     if talk == 1
@@ -452,7 +414,7 @@ for ii = looprange
                     end
                     test=1;
                 end
-            elseif Keep(ii) == 1 && test ==0
+            elseif Keep(ii,:) == 1 && test ==0
                 if exist('auto','var') && ~isempty(auto)
                     eignmode(:,ii)   = str2num(ModeNumber{oldnew}) ;
 
@@ -471,7 +433,7 @@ for ii = looprange
 
                 fid=fopen(outputfile, 'a+');
                 fprintf(fid,'%2.4f\t%5.4f\t%2.3f\t%g\t%d\n',...
-                    Temp(ii),freq(ii),tau(ii),gof(ii),Keep(ii));
+                    Temp(ii,:),freq(ii,:),tau(ii,:),gof(ii,:),Keep(ii,:));
                 fclose(fid);
 
                 if talk == 1
@@ -495,42 +457,92 @@ for ii = looprange
             if ShouldKeep == 'r'
                 if ii >1
                     ii = reload-1;
+
                     clear reload
                 end
             end
-            if ~isequal(size(freq,1),size(ring_times,2),size(ring_amps,2),size(eignmode,2),size(Temp,1),size(phi,2),size(ia,2))
-                cprintf('err','\n Internal Error - Size Mismatch on outputs detected\n')
-                cprintf('err','\n Loop Itteration :%d',ii)
-                cprintf('err','\n Ringdown File :%s',strcat(char(prefix),char(spec_name{ii})))
-                cprintf('err','\n Scan File: %s',strcat('ring_',char(ring_name{ii})))
-                cprintf('err','\n Saving Current state...\n')
-                save(fullfile(FolderName,'Recovered_outputs.mat'))
-                cprintf('err','\n Exciting...\n')
-                return
-            end
 
-            %write outputs to logfile
-            if ii ==1
-                fprintf(hfid,'Operator ID:\t %s' , ComputerID)
-                fprintf(hfid,'\nCreation Time:\t %s',datestr(now))
-                fprintf(hfid,'\nCurrent Directory:\t %s\n\n',pwd)
-                fprintf(hfid,'\nScanFileName\tRingfileName\tTemperature\tFrequency\tLabviewMode\tTau\tphi\tRejected\tRawRingdownLength\tOutputLength\txStart\txEnd\tGoodRingdown?')
-            end
 
-            if exist('cutpoints','var')
-                a = table(strcat(prefix,char(ring_name{ii})),{strcat('ring_',char(ring_name{ii}))},Temp(ii),freq(ii),modes(ii),tau(ii),phi(ii),reject(ii),length(newAmplitudes),length(ringdata1),floor(cutpoints(1)),floor(cutpoints(2)),Keep(ii));
-                writetable(a,histfile,'Delimiter','\t','WriteMode','append')
+
+            % Check sizes
+            if any(size(Temp,1) - prevSizes.Temp(1) ~= 1)
+                error('Size of Temp did not increase by 1');
+            else 
+                prevSizes.Temp = size(Temp);
+            end
+            
+            if any(size(freq,1) - prevSizes.freq(1) ~= 1)
+                error('Size of freq did not increase by 1');
+            else 
+                 prevSizes.freq = size(freq);
+            end
+            if any(size(ia,2) - prevSizes.ia(2) ~= 1)
+                error('Size of ia did not increase by 1');
+            else 
+                prevSizes.ia = size(ia);
+            end
+            if any(size(modes,1) - prevSizes.modes(1) ~= 1)
+                error('Size of modes did not increase by 1');
             else
-                a = table(strcat(prefix,char(ring_name{ii})),{strcat('ring_',char(ring_name{ii}))},Temp(ii),freq(ii),modes(ii),tau(ii),phi(ii),reject(ii),length(ringdata1),length(ringdata1),NaN,NaN,Keep(ii));
-                writetable(a,histfile,'Delimiter','\t','WriteMode','append')
+                prevSizes.modes = size(modes);
             end
+
+            if any(size(phi,1) - prevSizes.phi(1) ~= 1)
+                error('Size of phi did not increase by 1');
+            else 
+                 prevSizes.phi = size(phi);
+            end
+
+            if any(size(ring_amps,2) - prevSizes.ring_amps(2) ~= 1)
+                error('Size of ring_amps did not increase by 1');
+            else 
+                prevSizes.ring_amps = size(ring_amps);
+            end
+            if any(size(ring_times,2) - prevSizes.ring_times(2) ~= 1)
+                error('Size of ring_times did not increase by 1');
+            else 
+                prevSizes.ring_times = size(ring_times);
+            end
+            if any(size(tau,1) - prevSizes.tau(1) ~= 1)
+                error('Size of tau did not increase by 1');
+            else  
+                prevSizes.tau = size(tau);
+            end
+
+            % Update previous sizes for next iteration
+           
+            if exist('cutpoints','var')
+                hfid=fopen(histfile, 'a+');
+                a = table(strcat(prefix,char(ring_name{ii})),{strcat('ring_',char(ring_name{ii}))},Temp(ii,:),freq(ii,:),modes(ii,:),tau(ii,:),phi(ii,:),reject(ii,:),length(newAmplitudes),length(ringdata1),floor(cutpoints(1)),floor(cutpoints(2)),Keep(ii,:));
+                writetable(a,histfile,'Delimiter','\t','WriteMode','append')
+                if ii ==1
+                    counter = counter +2;
+                else
+                    counter = counter +1;
+                end
+            else
+                hfid=fopen(histfile, 'a+');
+                a = table(strcat(prefix,char(ring_name{ii})),{strcat('ring_',char(ring_name{ii}))},Temp(ii,:),freq(ii,:),modes(ii,:),tau(ii,:),phi(ii,:),reject(ii,:),length(ringdata1),length(ringdata1),NaN,NaN,Keep(ii,:));
+                writetable(a,histfile,'Delimiter','\t','WriteMode','append')
+              
+                if ii ==1
+                    counter = counter +2;
+                else
+                    counter = counter +1;
+                end
+            end
+
+
+            if getLines(histfile) - (counter) ~=0 
+                error('Log File not updated correctly');
+
+            end 
 
             clear goodpoints ringdata ringdata1 ringdata2 specdata Q tmp newtimes newAmplitudes ShouldKeep cutpoints a
-
-        pause(0.2)
+			pause(0.2)
         end
 
-        if isnan(eignmode(ii)) && strcmpi(Keep(ii),'n')
+        if isnan(eignmode(:,ii)) && strcmpi(Keep(ii,:),'n')
             cprintf('err','\nItteration %d Gives NAN eignmode\n',ii)
             dbstop
         end
@@ -538,14 +550,22 @@ for ii = looprange
 
 
         clear specdata ringdata ringdata2 fitresult b a cutpoints
-    catch
+    catch ME
+        disp(ME.stack)
+        cprintf('err','\n Internal Error - Size Mismatch on outputs detected\n')
+        cprintf('err','\n Loop Itteration :%d',ii)
+        cprintf('err','\n Ringdown File :%s',strcat(char(prefix),char(spec_name{ii})))
+        cprintf('err','\n Scan File: %s',strcat('ring_',char(ring_name{ii})))
+        cprintf('err','\n Saving Current state...\n')
         save(fullfile(FolderName,'Recovered_outputs.mat'))
+
+        return 
         ii = max(looprange);
 
     end
 end
 
-
+fclose(hfid)
 %pythondata
 pyname = strcat(FolderName,'/PyTotalAnalysis.mat');
 
@@ -555,8 +575,8 @@ fprintf('Valid Ringdowns         :\t%d\n',numel(find(Keep )))
 fprintf('Ringdowns Manually Refit:\t%d\n', counter)
 fprintf('Rejected Ringdowns      :\t%d\n\n', numel(find(Keep ==0)))
 
-rough_f =unique(sort(ceil(freq(Keep'>0 & ~isnan(freq))./100)*100));
-counts = groupcounts(sort(ceil(freq(Keep'>0 & ~isnan(freq))./100)*100));
+rough_f =unique(sort(ceil(freq(Keep>0 & ~isnan(freq))./100)*100));
+counts = groupcounts(sort(ceil(freq(Keep>0 & ~isnan(freq))./100)*100));
 
 fprintf('Rough Freq\t\tNo.Measurements\n')
 
@@ -626,22 +646,20 @@ cd(FolderName);
 %not work for other systems and needs to be fixed before rolling out to
 %everyone
 % if contains(ComputerID,'ComputerID')
-    reply = input('\nPerform Python Analysis? [Y/N] \n','s');
-    if contains(lower(reply),'y')
+reply = input('\nPerform Python Analysis? [Y/N] \n','s');
+if contains(lower(reply),'y')
+    pre_fit_py
+    pause(2)
+    system(sprintf('! open %s ',char(fnames('results*.png'))))
 
-        pre_fit_py
+    reply2 = input('\n Do you want to go through this data now?  [Y/N]','s');
 
-        pause(2)
-        system(sprintf('! open %s ',char(fnames('results*.png'))))
-
-        reply2 = input('\n Do you want to go through this data now?  [Y/N]','s');
-
-        if contains(lower(reply2),'y')|| isempty(reply2)
-            beat_excel
-        end
+    if contains(lower(reply2),'y')|| isempty(reply2)
+        beat_excel
     end
+end
 % end
-end 
+end
 
 %% Checking for new versions and self-updating
 % Function used to fetch latest master-branch from github and install in
