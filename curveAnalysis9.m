@@ -75,7 +75,8 @@ if length(time)<=3
     phi=0;
     gof=0;
     
-    figure;
+    
+    gcf; figure;
     plot(1:5,1:5,1:5,5:-1:1);
     text(3,3,'Not Enough Data','HorizontalAlignment','Center');
     reject = 1;
@@ -105,7 +106,7 @@ else
     
     if ~exist('suppress','var')
         if  reject ==0
-            figure('Position',XXX);
+            gcf; figure('Position',XXX);
             subplot(1,2,1);
             hold on
             grid on

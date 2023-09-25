@@ -1,4 +1,4 @@
-function [tau,phi,gof,time,Amplitude,ia,x]=curveAnalysis3(Rfilename,Sfilename,freq)
+zfunction [tau,phi,gof,time,Amplitude,ia,x]=curveAnalysis3(Rfilename,Sfilename,freq)
 %
 %Function takes in ringdown,scan and an equivilent frequency value and
 %produces an exponential fit to the input data. Calculating the mechanical
@@ -39,7 +39,7 @@ Amplitude=A(:,2);
 time2=B(:,1);
 Amplitude2=B(:,2);
 
-f1=figure('Position',XXX);
+gcf; f1=figure('Position',XXX);
 hold on;
 plot(time,Amplitude,'.');
 
@@ -73,7 +73,7 @@ while(test==0)
     newAmplitudes = newAmplitudes';
     newtime = newtime';
     
-    f1=figure('Position',XXX);
+    gcf; f1=figure('Position',XXX);
     hold on;
     plot(newtime,newAmplitudes,'.');
     [D,E]=fit(newtime,newAmplitudes,'exp1');
@@ -105,7 +105,7 @@ if length(time)<=3
     phi=0;
     gof=0;
     
-    figure;
+    gcf; figure;
     plot(1:5,1:5,1:5,5:-1:1);
     text(3,3,'Not Enough Data','HorizontalAlignment','Center');
 else
@@ -114,7 +114,7 @@ else
 
     fity=D.a*exp(D.b*newtime);
 
-    figure('Position',XXX);
+    gcf; figure('Position',XXX);
     subplot(1,2,1);plot(newtime,newAmplitudes,'b.',newtime,fity,'color',cb(1,:));
     subplot(1,2,2);plot(time2,Amplitude2,'color',cb(4,:));
     xlabel('Time ') 
