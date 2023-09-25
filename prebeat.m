@@ -551,8 +551,10 @@ for ii = looprange
 
         clear specdata ringdata ringdata2 fitresult b a cutpoints
     catch ME
-        disp(ME.stack)
-        cprintf('err','\n Internal Error - Size Mismatch on outputs detected\n')
+        
+        cprintf('err','Function:''%s.m'' failed to execute.\nError occured on line %d\nFile Origin:%s\n',ME.stack.name,ME.stack.line,ME.stack.file)
+        
+        cprintf('err','\n%s\n',ME.message)
         cprintf('err','\n Loop Itteration :%d',ii)
         cprintf('err','\n Ringdown File :%s',strcat(char(prefix),char(spec_name{ii})))
         cprintf('err','\n Scan File: %s',strcat('ring_',char(ring_name{ii})))

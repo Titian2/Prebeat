@@ -1,4 +1,4 @@
-zfunction [tau,phi,gof,time,Amplitude,ia,x]=curveAnalysis3(Rfilename,Sfilename,freq)
+function [tau,phi,gof,time,Amplitude,ia,x]=curveAnalysis3(Rfilename,Sfilename,freq)
 %
 %Function takes in ringdown,scan and an equivilent frequency value and
 %produces an exponential fit to the input data. Calculating the mechanical
