@@ -128,6 +128,6 @@ else
     gof=E.adjrsquare;
     
   
-    
+    pause(0.2)
     
 end

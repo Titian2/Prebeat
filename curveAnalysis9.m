@@ -112,7 +112,7 @@ else
             grid on
             plot(time,Amplitude,'bo')
             plot(time,D(time),'color',cb(2,:),'LineWidth',4);
-            
+          
             xlabel('Time ')
             ylabel('Amplitude')
             if numel(isnan(time))>1
@@ -172,6 +172,6 @@ if sum(isnan(time))>0
     time =time - first(time(~isnan(time)));
 end
 
-
+pause(0.2)
 
 end
