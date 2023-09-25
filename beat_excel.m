@@ -104,7 +104,7 @@ catch
     end
     
 end
-results = [results,pre.phi(results(:,end-2)+1)'];
+results = [results,pre.phi(results(:,end-2)+1)];
 
 results =  sortrows(results,1);
 
