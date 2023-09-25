@@ -27,7 +27,7 @@ function beat_excel(xlpath,topwhitespace)
 % Author S.tait 2023
 % simon.tait@glasgow.ac.uk
 %
-% 
+%
 % v1.0.1    - Bug fixes and changes to writecell and writematrix functions
 %             to enable writing to excel on windows systems. Also added a cleaning up
 %             system which zips all images and pickle files after user review to save
@@ -92,7 +92,7 @@ results = table2array(results);
 %load pre-beat / Total analysis losses
 try
     pre = load(fullfile(pwd,'PyTotalAnalysis.mat'),'phi');
-    
+
 catch
     cprintf('err','\n Could not find ''PyTotalAnalysis.mat''\n')
     [MatFile] =uigetfile('*.mat','Please Specifiy which file to read');
@@ -102,10 +102,16 @@ catch
         cprintf('err','\nPython outputs could not be loaded ''\n')
         pre  = nan(size(results(:,1)));
     end
-    
-end
-results = [results,pre.phi(results(:,end-2)+1)];
 
+end
+
+if size(pre.phi(results(:,end-2)+1),2)>size(pre.phi(results(:,end-2)+1),1)
+    results = [results,pre.phi(results(:,end-2)+1)'];
+elseif size(pre.phi(results(:,end-2)+1),2)<size(pre.phi(results(:,end-2)+1),1)
+
+    results = [results,pre.phi(results(:,end-2)+1)];
+
+end
 results =  sortrows(results,1);
 
 
@@ -138,13 +144,13 @@ counts = counts2';
 %write headings to excel
 fprintf('\n Writing Data...')
 
-if ispc ==1 
+if ispc ==1
     writecell(xlheadings,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_heading)
     % chk = xlswrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
 
-else 
+else
     chk = xlwrite(fullfile(xlpath,xlfile),xlheadings,sheetname,xlrange_heading);
-end 
+end
 
 
 
@@ -168,7 +174,7 @@ for i =1:numel(groups)
     %find indicies of each frequency in results
     %sort so that negative values are at the bottom
     outdata = results(groupidx(~isnan(groupidx(:,i)),i),:);
-    
+
     %generate names for fit figures produced by python
     % these will be used to hyperlink - ADD THIS LATER USING DROPBOX API
     fitnames = strcat('fit_',string(outdata(:,8)),'.png');
@@ -179,28 +185,28 @@ for i =1:numel(groups)
             imshow(sprintf('%s',which(fitnames{k})),'InitialMagnification',300)
             pause(0.5)
             fitcheck{k,i} = input('\nAre you happy with this fit [Y/N] \n','s');
-            
-            
+
+
             if isempty(fitcheck{k,i}) || contains( lower(fitcheck{k,i}),'y')
-                
+
                 fitcheck{k,i} ='1';
-            
+
             else
-                
+
                 fitcheck{k,i} ='0';
             end
-            
+
             close
         catch
             fitcheck{k,i} ='0';
             fprintf('\n ERROR file %s could not be loaded\n',char(fitnames{i}))
         end
-        
+
     end
-    
+
     xlrange_names = char(strcat('A',string(starts(i)),':','A',string(ends(i))));
-    
-    
+
+
     %write file names to excel
     if ispc
         % chk3 = xlswrite(fullfile(xlpath,xlfile),hypernames',sheetname,xlrange_names);
@@ -214,14 +220,14 @@ for i =1:numel(groups)
     %generate excel cells
     xlrange_data =char(strcat('B',string(starts(i)),':',capitalize(alphab(size(results,2)+2)),string(ends(i))));
     outdata = [outdata,str2double(fitcheck(1:size(outdata,1),i))>0];
-    
+
     %write data to excel
-    if ispc 
-    % chk2 = xlswrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
-    writematrix(outdata,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_data)
-    else 
-    chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
-    end 
+    if ispc
+        % chk2 = xlswrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+        writematrix(outdata,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',xlrange_data)
+    else
+        chk2 = xlwrite(fullfile(xlpath,xlfile),outdata,sheetname,xlrange_data);
+    end
 
     average_idx = excelidx(outdata(:,end)>0,i);
     average_idx = average_idx(~isnan(average_idx));
@@ -260,15 +266,15 @@ for i =1:numel(groups)
             outform{i,7} = 'NaN';
         end
     end
-    
-    
+
+
     %construct averages array
-    
+
     clear out2 out3 fitnames outnames outdata average_idx
-    
-    
+
+
     cprintf('.')
-    
+
 end
 
 %generate formulae for averaging and STD of mecahnical losses
@@ -276,7 +282,7 @@ end
 %     out(j,:) = {string(sprintf('=AVERAGE(B%d:B%d)',starts(j),ends(j))),string(sprintf('=AVERAGE(C%d:C%d)',starts(j),ends(j))),string(sprintf('=AVERAGE(D%d:D%d)',starts(j),ends(j))),string(sprintf('=STDEV(C%d:C%d)',starts(j),ends(j))),string(sprintf('=STDEV(D%d:D%d)',starts(j),ends(j)))};
 % end
 
-if ispc ==1 
+if ispc ==1
     write_range = char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
     table_headings = {'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'};
 
@@ -284,8 +290,8 @@ if ispc ==1
 
     % xlswrite(fullfile(xlpath,xlfile),table_headings,sheetname,write_range);
     pause(0.5)
-	
-else 
+
+else
     write_range = char(strcat('N',string(topwhitespace-1),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
     table_headings = {'Freq', 'PyLoss 1','PyLoss 2','STDEV PyLoss1','STDEV PyLoss2','ToA Loss','STDEV ToA'};
 
@@ -293,36 +299,36 @@ else
 
 
     pause(0.5)
-	
+
 end
 %write formulae to excel
 if any(sum((cellfun(@isempty,outform)))>1)
     outform(find(cellfun(@isempty,outform))) = {'NaN'};
 end
 
-if ispc ==1 
-    
+if ispc ==1
+
     outform_range = char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
-    
+
     writecell(outform,fullfile(xlpath,xlfile),'sheet',sheetname,'Range',outform_range)
     % xlswrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
 
     pause(0.5)
-else 
+else
     outform_range = char(strcat('N',string(topwhitespace),':',capitalize(alphab(find(cellfun(@(x) any(strcmp({'n'}, x)),alphab))+size(outform,2))),string(size(outform,1)+topwhitespace-1)));
     xlwrite(fullfile(xlpath,xlfile),outform,sheetname,outform_range);
 
-end 
+end
 
 
 cprintf('text','Done\n')
 
-pause(5) 
+pause(5)
 
 reply =input('Do you wish to open the excel file ? [Y/N]','s');
 if contains(lower(reply),'y')
-system(sprintf('! open %s', char(fullfile(xlpath,xlfile))    ))
-end 
+    system(sprintf('! open %s', char(fullfile(xlpath,xlfile))    ))
+end
 
 
 fprintf('\n Cleaning up directory...')
@@ -357,7 +363,7 @@ end
 
 fprintf('Done\n')
 pause(0.2)
-clc 
+clc
 
 
 
