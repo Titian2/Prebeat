@@ -77,9 +77,9 @@ currentVersion = 2.0;
 % end
 
 %% Check for new version - update if newer version exists
-if checkForNewerVersion_MATLAB(currentVersion)
-    updateInstalledVersion()
-end
+%if checkForNewerVersion_MATLAB(currentVersion)
+ %   updateInstalledVersion()
+%end
 
 %% Look for failed versions in current directory - prompt user to load if exist
 loadflag = 0;
@@ -185,7 +185,7 @@ if loadflag ==0
     C=0;
     matchk = max(numLines) ; clear ii;
     counter = 0;
-
+%%
     histfile =  fullfile(FolderName,strcat('Log_',samplename,'_',datestr(now,'DD-mm-YYYY'),'.txt'));
     hfid=fopen(histfile, 'a+');
 end
@@ -259,6 +259,9 @@ for ii = looprange
         end
 
         try
+            % if contains(spec_name{ii},'_7_m1_r1.txt')
+            %     break 
+            % end
             reload = ii;
             specdata = load(strcat(char(prefix),char(spec_name{ii})));
             ringdata = load(strcat('ring_',char(ring_name{ii})));
@@ -524,7 +527,7 @@ for ii = looprange
 
             clear goodpoints ringdata ringdata1 ringdata2 specdata Q tmp newtimes newAmplitudes ShouldKeep cutpoints a
 
-
+        pause(0.2)
         end
 
         if isnan(eignmode(ii)) && strcmpi(Keep(ii),'n')
