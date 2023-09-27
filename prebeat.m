@@ -650,9 +650,15 @@ cd(FolderName);
 % if contains(ComputerID,'ComputerID')
 reply = input('\nPerform Python Analysis? [Y/N] \n','s');
 if contains(lower(reply),'y')
-    pre_fit_py
+    % Use Papermill to interface with Python fitting stuff 
+    
+    copyfile(fullfile(fileparts(which('prebeat.m')), 'fit_ringdowns_degenerate_cmd.ipynb'),pwd)
+    system(sprintf('papermill fit_ringdowns_degenerate_cmd.ipynb output.ipynb -p prefix "%s"',pwd))
+    movefile("fit_ringdowns_degenerate_cmd.ipynb","deleteme.ipynb")
+    movefile("output.ipynb","fit_ringdowns_degenerate_cmd.ipynb")
+    delete("deleteme.ipynb")
     pause(2)
-    system(sprintf('! open %s ',char(fnames('results*.png'))))
+
 
     reply2 = input('\n Do you want to go through this data now?  [Y/N]','s');
 

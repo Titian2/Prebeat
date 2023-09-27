@@ -37,7 +37,10 @@ if ispc
     t =char(str);
     oldpath = t(idx{:}(2):idx{:}(3));
 
-    rawText(lines) = strrep(rawText(lines),oldpath,strcat('r',pwd,'"'));
+    % rawText(lines) = strrep(rawText(lines),oldpath,);
+    rawText(lines) = strrep(rawText(lines),oldpath,jsonencode(pwd));
+
+
 end 
 
 
@@ -45,11 +48,11 @@ if ~isempty(find(contains(rawText,'makeplot=False')))
     rawText(find(contains(rawText,'makeplot=False'))) = strrep(rawText(find(contains(rawText,'makeplot=False'))),'makeplot=False','makeplot=True');
 end 
 
-fid2 = fopen('fit_ringdowns_degenerate_cmd.ipynb','wt');
+fid2 = fopen('TEST.ipynb','wt');
 
 for k =1:numel(rawText)
-    
-fprintf(fid2,'%s',string(rawText{k}));
+
+fprintf(fid2,'%s\n',string(rawText{k}));
 end
 fclose(fid2);
 
